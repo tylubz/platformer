@@ -1,0 +1,41 @@
+
+packName.png
+size: 256,64
+format: RGBA8888
+filter: Nearest,Nearest
+repeat: none
+dog01
+  rotate: false
+  xy: 2, 2
+  size: 29, 56
+  orig: 29, 56
+  offset: 0, 0
+  index: -1
+dog02
+  rotate: false
+  xy: 33, 2
+  size: 29, 56
+  orig: 29, 56
+  offset: 0, 0
+  index: -1
+dog03
+  rotate: false
+  xy: 64, 2
+  size: 29, 56
+  orig: 29, 56
+  offset: 0, 0
+  index: -1
+dog04
+  rotate: false
+  xy: 95, 2
+  size: 29, 56
+  orig: 29, 56
+  offset: 0, 0
+  index: -1
+dog05
+  rotate: false
+  xy: 126, 2
+  size: 29, 56
+  orig: 29, 56
+  offset: 0, 0
+  index: -1

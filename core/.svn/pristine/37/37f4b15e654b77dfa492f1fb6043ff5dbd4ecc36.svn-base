@@ -1,0 +1,186 @@
+package Controller;
+
+import java.util.List;
+
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Pool;
+
+import Model.Block;
+import Model.Bob;
+import Model.DogEnemy;
+import Model.World;
+
+public class DogEnemyController {
+
+	private static final float ACCELERATION = 20f;
+	private static final float GRAVITY = -9.8f;
+	// private static final float GRAVITY = -1f;
+	private static final float MAX_VEL = 4f;
+
+	//private boolean grounded = false;
+	
+	private World world;
+	private List<DogEnemy> listDog;
+
+	private Bob bob;
+	// This is the rectangle pool used in collision detection
+	// Good to avoid instantiation each frame
+	private Pool<Rectangle> rectPool = new Pool<Rectangle>() {
+		@Override
+		protected Rectangle newObject() {
+			return new Rectangle();
+		}
+	};
+
+	// Blocks that Bob can collide with any given frame
+	private Array<Block> collidable = new Array<Block>();
+
+	//Block tempBlock = null;
+
+	public DogEnemyController(World world) {
+		this.world = world;
+		this.listDog = world.getDog();
+		this.bob = world.getBob();
+	}
+
+	public void moveDog(float delta) {
+		for (DogEnemy dog : listDog) {
+			dog.getAcceleration().scl(delta);
+			//dog.setVelocity(new Vector2(0,0));
+			//dog.setAcceleration(new Vector2(0,0));
+			if (dog.getPosition().x > bob.getPosition().x) {
+				dog.setFacingLeft(true);
+				//dog.setAcceleration(new Vector2(0,0));
+				dog.getAcceleration().scl(delta);
+				dog.getVelocity().add(-0.01f, 0);
+			} else {
+				dog.setFacingLeft(false);
+				//dog.setAcceleration(new Vector2(0,0));
+				dog.getVelocity().add(0.01f, 0);
+			}
+			dog.getAcceleration().scl(1 / delta);
+		}
+		// else dog.getPosition().x=(dog.getPosition().x+0.01f);
+
+	}
+
+	public void update(float delta) {
+		for (DogEnemy dog : listDog) {
+			dog.getAcceleration().y = GRAVITY;
+			// Convert acceleration to frame time
+			dog.getAcceleration().scl(delta);
+			dog.getVelocity().add(dog.getAcceleration().x,
+			dog.getAcceleration().y);
+			checkCollisionWithBlocks(delta);
+			dog.update(delta);
+		}
+
+	}
+
+	/** Collision checking **/
+	private void checkCollisionWithBlocks(float delta) {
+		for (DogEnemy dog : listDog) {
+			// scale velocity to frame units
+			dog.getVelocity().scl(delta);
+			// Obtain the rectangle from the pool instead of instantiating it
+			Rectangle dogRect = rectPool.obtain();
+			// set the rectangle to bob's bounding box
+			dogRect.set(dog.getBounds().x, dog.getBounds().y,
+			dog.getBounds().width, dog.getBounds().height);
+
+			// we first check the movement on the horizontal X axis
+			int startX, endX;
+			int startY = (int) dog.getBounds().y;
+			int endY = (int) (dog.getBounds().y + dog.getBounds().height);
+			// if Bob is heading left then we check if he collides with the
+			// block on his left
+			// we check the block on his right otherwise
+			if (dog.getVelocity().x < 0) {
+				startX = endX = (int) Math.floor(dog.getBounds().x
+						+ dog.getVelocity().x);
+			} else {
+				startX = endX = (int) Math.floor(dog.getBounds().x
+						+ dog.getBounds().width + dog.getVelocity().x);
+			}
+
+			// get the block(s) bob can collide with
+			populateCollidableBlocks(startX, startY, endX, endY);
+
+			// simulate bob's movement on the X
+			dogRect.x += dog.getVelocity().x;
+
+			// clear collision boxes in world
+			world.getCollisionRects().clear();
+
+			// if bob collides, make his horizontal velocity 0
+			for (Block block : collidable) {
+				if (block == null)
+					continue;
+				if (dogRect.overlaps(block.getBounds())) {
+					//tempBlock = block;
+					dog.getVelocity().x = 0;
+					world.getCollisionRects().add(block.getBounds());
+					break;
+				}
+			}
+
+			// reset the x position of the collision box
+			dogRect.x = dog.getPosition().x;
+
+			// the same thing but on the vertical Y axis
+			startX = (int) dog.getBounds().x;
+			endX = (int) (dog.getBounds().x + dog.getBounds().width);
+			if (dog.getVelocity().y < 0) {
+				startY = endY = (int) Math.floor(dog.getBounds().y
+						+ dog.getVelocity().y);
+			} else {
+				startY = endY = (int) Math.floor(dog.getBounds().y
+						+ dog.getBounds().height + dog.getVelocity().y);
+			}
+
+			populateCollidableBlocks(startX, startY, endX, endY);
+
+			dogRect.y += dog.getVelocity().y;
+
+			for (Block block : collidable) {
+				if (block == null)
+					continue;
+				if (dogRect.overlaps(block.getBounds())) {
+					dog.getVelocity().y = 0;
+					world.getCollisionRects().add(block.getBounds());
+					break;
+				}
+			}
+			// reset the collision box's position on Y
+			dogRect.y = dog.getPosition().y;
+
+			// update Bob's position
+			dog.getPosition().add(dog.getVelocity());
+			dog.getBounds().x = dog.getPosition().x;
+			dog.getBounds().y = dog.getPosition().y;
+
+			dog.getVelocity().scl(1 / delta);
+		}
+
+	}
+
+	/**
+	 * populate the collidable array with the blocks found in the enclosing
+	 * coordinates
+	 **/
+	private void populateCollidableBlocks(int startX, int startY, int endX,
+			int endY) {
+		collidable.clear();
+		for (int x = startX; x <= endX; x++) {
+			for (int y = startY; y <= endY; y++) {
+				if (x >= 0 && x < world.getLevel().getWidth() && y >= 0
+						&& y < world.getLevel().getHeight()) {
+					collidable.add(world.getLevel().get(x, y));
+				}
+			}
+		}
+	}
+
+}

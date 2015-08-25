@@ -1,0 +1,112 @@
+package Controller;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.utils.Pool;
+
+import Model.Bullet;
+import Model.DogEnemy;
+import Model.World;
+
+public class BulletController {
+
+	private World world;
+	private List<Bullet> bullets = new ArrayList<Bullet>();
+	private List<DogEnemy> listDog;
+	
+
+	private Pool<Rectangle> rectPool = new Pool<Rectangle>() {
+		@Override
+		protected Rectangle newObject() {
+			return new Rectangle();
+		}
+	};
+	
+	
+	
+	public BulletController(World world) {
+		this.world = world;
+		this.listDog = world.getDog();
+	}
+
+	public void moveBullets(float delta) {
+		if (bullets.isEmpty()) {
+			bullets = world.getBullet();
+		} else {
+			for (Bullet bullet : bullets) {
+				bullet.getAcceleration().scl(delta);
+				// bullet = world.getBob().getBullet();
+				if(bullet.getDirectionLeft()){
+				bullet.getPosition().x = bullet.getPosition().x - 0.12f;
+				//bullet.getBounds().x = bullet.getBounds().x  - 0.12f;
+				}
+				else bullet.getPosition().x = bullet.getPosition().x + 0.12f;
+				//else bullet.getBounds().x = bullet.getBounds().x  + 0.12f;
+				checkCollisionWithEnemies(delta,bullet);
+				bullet.getAcceleration().scl(1 / delta);
+			}
+			//System.out.println("Input");
+			//checkCollisionWithEnemies(delta,bullets.get(0));
+			//System.out.println("Output");
+		}
+	}
+	
+
+	public void update(float delta) {
+		for (Bullet bullet : bullets) {
+			//bullet.getAcceleration().scl(delta);
+			//bullet.getVelocity().add(bullet.getAcceleration().x, bullet.getAcceleration().y);
+			//checkCollisionWithEnemies(delta,bullet);
+			bullet.update(delta);
+			//bullet.getAcceleration().scl(1/delta);
+			//checkCollisionWithEnemies(delta,bullet);
+		}
+	}
+	
+	
+	
+	private void checkCollisionWithEnemies(float delta,Bullet bullet){
+		// scale velocity to frame units 
+		if(listDog.isEmpty())
+			return;
+				bullet.getVelocity().scl(delta);
+				//System.out.println("Input");
+				// Obtain the rectangle from the pool instead of instantiating it
+				Rectangle bobRect = rectPool.obtain();
+				// set the rectangle to bob's bounding box
+				bobRect.set(bullet.getBounds().x, bullet.getBounds().y, bullet.getBounds().width, bullet.getBounds().height);
+
+				/** if collision delete dog       **/
+				Iterator<DogEnemy> itr = listDog.iterator();
+				while(itr.hasNext()){
+					DogEnemy dog = itr.next();
+					System.out.println("Input");
+					//dog.getBounds().overlaps(bullet.getBounds())
+					
+				//if (bobRect.overlaps(dog.getBounds())) {
+					//if(dog.getBounds().x){
+				//if(dog.getBounds().overlaps(bullet.getBounds())){
+					if(dog.getPosition().epsilonEquals(bullet.getPosition(), 0.12f)){
+					//dog.getBounds().x < r.x + r.width && x + width > r.x && y < r.y + r.height && y + height > r.y;
+					System.out.println("Collision!");
+					//bullet.getVelocity().x = 0;
+					//bullet.getVelocity().x=0;
+					//System.out.println("Collision!");
+					itr.remove();
+					//break;
+					}
+				}
+		
+				// un-scale velocity (not in frame time)
+				bullet.getVelocity().scl(1 / delta);
+				
+		
+	}
+	
+	
+	
+	
+}

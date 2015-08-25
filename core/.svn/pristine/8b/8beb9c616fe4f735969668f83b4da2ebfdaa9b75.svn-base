@@ -1,0 +1,240 @@
+package View;
+
+import java.util.List;
+
+import Model.Block;
+import Model.Bob;
+import Model.Bullet;
+import Model.DogEnemy;
+import Model.World;
+import Model.Bob.State;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.Animation;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureAtlas;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.utils.viewport.Viewport;
+
+public class WorldRenderer {
+
+	private static final float CAMERA_WIDTH = 10f;
+	private static final float CAMERA_HEIGHT = 7f;
+	//private static final float CAMERA_WIDTH = 20f;
+	//private static final float CAMERA_HEIGHT = 14f;
+	private static final float RUNNING_FRAME_DURATION = 0.06f;
+
+	private World world;
+	private OrthographicCamera cam;
+	// /
+	private Viewport vp;
+	private Stage stage;
+	// /
+
+	/** for debug rendering **/
+	ShapeRenderer debugRenderer = new ShapeRenderer();
+
+	/** Textures **/
+	private TextureRegion bobIdleLeft;
+	private TextureRegion bobIdleRight;
+	private TextureRegion dogFrame;
+	// /
+	private Texture background;
+	TextureRegion[] dogs;
+	TextureRegion[] dogs1;
+	// /
+	private Texture blockTexture;
+	private TextureRegion bobFrame;
+	private TextureRegion bobJumpLeft;
+	private TextureRegion bobFallLeft;
+	private TextureRegion bobJumpRight;
+	private TextureRegion bobFallRight;
+	private Texture bulletTexture;
+
+	/** State time **/
+	float stateTime;
+
+	/** Animations **/
+	private Animation walkLeftAnimation;
+	private Animation walkRightAnimation;
+	private Animation dogLeftAnimation;
+	private Animation dogRightAnimation;
+
+	private SpriteBatch spriteBatch;
+	private int width;
+	private int height;
+	private float ppuX; // pixels per unit on the X axis
+	private float ppuY; // pixels per unit on the Y axis
+
+	public void setSize(int w, int h) {
+		this.width = w;
+		this.height = h;
+		ppuX = (float) width / CAMERA_WIDTH;
+		ppuY = (float) height / CAMERA_HEIGHT;
+	}
+
+	public WorldRenderer(World world) {
+		stateTime = 0f;
+		this.world = world;
+		this.cam = new OrthographicCamera(CAMERA_WIDTH, CAMERA_HEIGHT);
+		this.cam.position.set(CAMERA_WIDTH / 2f, CAMERA_HEIGHT / 2f, 0);
+		this.cam.update();
+		spriteBatch = new SpriteBatch();
+		loadTextures();
+	}
+
+	private void loadTextures() {
+		TextureAtlas atlas = new TextureAtlas(
+				Gdx.files.internal("images/textures/textures.pack"));
+		TextureAtlas atlasDog = new TextureAtlas(
+				Gdx.files.internal("images/Enemy/packName.pack"));
+		bobIdleLeft = atlas.findRegion("bob-01");
+		bobIdleRight = new TextureRegion(bobIdleLeft);
+		bobIdleRight.flip(true, false);
+		// blockTexture = atlas.findRegion("block");
+		blockTexture = new Texture(Gdx.files.internal("images/brick.png"));
+
+		//background = new Texture(Gdx.files.internal("images/back.png"));
+
+		dogs = new TextureRegion[5];
+		dogs[0] = atlasDog.findRegion("dog01");
+		dogs[1] = atlasDog.findRegion("dog02");
+		dogs[2] = atlasDog.findRegion("dog03");
+		dogs[3] = atlasDog.findRegion("dog04");
+		dogs[4] = atlasDog.findRegion("dog05");
+		dogLeftAnimation = new Animation(0.2f, dogs);
+
+		// /
+		dogs1 = new TextureRegion[5];
+		dogs1[0] = new TextureRegion(dogs[0]);
+		dogs1[0].flip(true, false);
+		dogs1[1] = new TextureRegion(dogs[1]);
+		dogs1[1].flip(true, false);
+		dogs1[2] = new TextureRegion(dogs[2]);
+		dogs1[2].flip(true, false);
+		dogs1[3] = new TextureRegion(dogs[3]);
+		dogs1[3].flip(true, false);
+		dogs1[4] = new TextureRegion(dogs[4]);
+		dogs1[4].flip(true, false);
+		dogRightAnimation = new Animation(0.2f, dogs1);
+
+		bulletTexture = new Texture(Gdx.files.internal("images/bullet.png"));
+		// /
+		TextureRegion[] walkLeftFrames = new TextureRegion[5];
+		for (int i = 0; i < 5; i++) {
+			walkLeftFrames[i] = atlas.findRegion("bob-0" + (i + 2));
+		}
+		walkLeftAnimation = new Animation(RUNNING_FRAME_DURATION,
+				walkLeftFrames);
+
+		TextureRegion[] walkRightFrames = new TextureRegion[5];
+
+		for (int i = 0; i < 5; i++) {
+			walkRightFrames[i] = new TextureRegion(walkLeftFrames[i]);
+			walkRightFrames[i].flip(true, false);
+		}
+		walkRightAnimation = new Animation(RUNNING_FRAME_DURATION,
+				walkRightFrames);
+		bobJumpLeft = atlas.findRegion("bob-up");
+		bobJumpRight = new TextureRegion(bobJumpLeft);
+		bobJumpRight.flip(true, false);
+		bobFallLeft = atlas.findRegion("bob-down");
+		bobFallRight = new TextureRegion(bobFallLeft);
+		bobFallRight.flip(true, false);
+	}
+
+	public void render() {
+		stateTime += Gdx.graphics.getDeltaTime();
+		moveCamera(world.getBob().getPosition().x,world.getBob().getPosition().y);
+		spriteBatch.setProjectionMatrix(cam.combined);
+		cam.setToOrtho(false);
+		spriteBatch.begin();
+		//spriteBatch.draw(background, 0, 0);
+		drawBlocks();
+		drawBob();
+		drawBullets();
+		drawDog();
+		drawBoomEffect();
+		spriteBatch.end();
+	}
+
+	public void moveCamera(float x,float y) {
+		cam.position.set(x * ppuX, y * ppuY, 0);
+		cam.update();
+	}
+
+	private void drawBlocks() {
+		for (Block block : world.getDrawableBlocks((int) CAMERA_WIDTH,
+				(int) CAMERA_HEIGHT)) {
+			spriteBatch.draw(blockTexture, block.getPosition().x * ppuX,
+					block.getPosition().y * ppuY, Block.SIZE * ppuX, Block.SIZE
+							* ppuY);
+		}
+	}
+
+	private void drawBob() {
+		Bob bob = world.getBob();
+		bobFrame = bob.isFacingLeft() ? bobIdleLeft : bobIdleRight;
+		if (bob.getState().equals(State.WALKING)) {
+			bobFrame = bob.isFacingLeft() ? walkLeftAnimation.getKeyFrame(
+					bob.getStateTime(), true) : walkRightAnimation.getKeyFrame(
+					bob.getStateTime(), true);
+		} else if (bob.getState().equals(State.JUMPING)) {
+			if (bob.getVelocity().y > 0) {
+				bobFrame = bob.isFacingLeft() ? bobJumpLeft : bobJumpRight;
+			} else {
+				bobFrame = bob.isFacingLeft() ? bobFallLeft : bobFallRight;
+			}
+		}
+		spriteBatch.draw(bobFrame, bob.getPosition().x * ppuX,
+				bob.getPosition().y * ppuY, Bob.SIZE * ppuX, Bob.SIZE * ppuY);
+	}
+
+	private void drawDog() {
+		List<DogEnemy> listDog = world.getDog();
+		for (DogEnemy dog : listDog) {
+			dogFrame = dogLeftAnimation.getKeyFrame(dog.getStateTime(), true);
+			dogFrame = dog.isFacingLeft() ? dogLeftAnimation.getKeyFrame(
+					dog.getStateTime(), true) : dogRightAnimation.getKeyFrame(
+					dog.getStateTime(), true);
+			// if(!dog.isFacingLeft())
+			// {
+			// dogFrame.flip(true, false);
+			// }
+			// dogFrame = dogAnimation.getKeyFrame((Float) null,true);
+			spriteBatch.draw(dogFrame, dog.getPosition().x * ppuX,
+					dog.getPosition().y * ppuY, dog.SIZE * ppuX, dog.SIZE
+							* ppuY);
+		}
+	}
+
+	private void drawBullets() {
+		List<Bullet> bulletList = world.getBullet();
+		// bob.c
+		// bob.bullet
+		// Bullet bl = bob.createBullet();
+		if (bulletList != null) {
+			for (Bullet bullet : bulletList) {
+				if (bullet.isBulletCreated) {
+					spriteBatch.draw(bulletTexture, bullet.getPosition().x* ppuX, bullet.getPosition().y * ppuY, bullet.SIZE* ppuX, bullet.SIZE * ppuY);
+				}
+			}
+		}
+	}
+	
+	private void drawBoomEffect() {
+		BoomEffect boom = world.getBoomEffect();
+		
+		if(boom.isBoom()){
+		spriteBatch.draw(boom.textureRegion,((boom.getPosition().x - boom.SIZE/2) * ppuX),((boom.getPosition().y - boom.SIZE/2) * ppuY),boom.SIZE * ppuX, boom.SIZE * ppuY);
+			//spriteBatch.draw(boom.textureRegion,(boom.getPosition().x * ppuX),(boom.getBounds().y * ppuY),boom.SIZE * ppuX, boom.SIZE * ppuY);
+		}
+//		boom.draw();
+//		//spriteBatch.dr
+		}
+
+}

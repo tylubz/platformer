@@ -1,0 +1,139 @@
+package Controller;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
+
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Pool;
+
+import Model.Block;
+import Model.Bullet;
+import Model.DogEnemy;
+import Model.World;
+
+public class BulletController {
+
+	private World world;
+	// Blocks that Bob can collide with any given frame
+	private List<Block> collidable = new ArrayList<Block>();
+	private List<Bullet> bullets;
+	// = new ArrayList<Bullet>();
+	private List<DogEnemy> listDog;
+
+
+	private Pool<Rectangle> rectPool = new Pool<Rectangle>() {
+		@Override
+		protected Rectangle newObject() {
+			return new Rectangle();
+		}
+	};
+
+	public BulletController(World world) {
+		this.world = world;
+		this.listDog = world.getDog();
+		this.bullets = world.getBullet();
+	}
+
+	public void moveBullets(float delta) {
+		if (bullets.isEmpty()) {
+			bullets = world.getBullet();
+		} else {
+			Iterator<Bullet> Bylletiterator = bullets.iterator();
+			while (Bylletiterator.hasNext()) {
+				Bullet bullet = Bylletiterator.next();
+				bullet.getAcceleration().scl(delta);
+				//change bullets direction
+				bullet.getPosition().x = bullet.getDirectionLeft() ? bullet.getPosition().x - 0.12f : bullet.getPosition().x + 0.12f;
+				checkCollisionWithEnemies(delta, bullet);
+				if (checkCollisionWithBlocks(delta, bullet)) {
+					Bylletiterator.remove();
+				}
+				bullet.getAcceleration().scl(1 / delta);
+			}
+		}
+	}
+
+	public void update(float delta) {
+		for (Bullet bullet : bullets) {
+			// bullet.getAcceleration().scl(delta);
+			// bullet.getVelocity().add(bullet.getAcceleration().x,
+			// bullet.getAcceleration().y);
+			// checkCollisionWithEnemies(delta,bullet);
+			bullet.update(delta);
+		}
+	}
+
+	private void checkCollisionWithEnemies(float delta, Bullet bullet) {
+		if (listDog.isEmpty())
+			return;
+		// scale velocity to frame units
+		bullet.getVelocity().scl(delta);
+		/** if collision delete dog **/
+		Iterator<DogEnemy> itr = listDog.iterator();
+		while (itr.hasNext()) {
+			DogEnemy dog = itr.next();
+			if (dog.getPosition().epsilonEquals(bullet.getPosition(), 0.12f)) {
+				itr.remove();
+			}
+		}
+
+		// un-scale velocity (not in frame time)
+		bullet.getVelocity().scl(1 / delta);
+
+	}
+
+	private boolean checkCollisionWithBlocks(float delta, Bullet bullet) {
+		boolean tmp = false;
+		// scale velocity to frame units
+		bullet.getVelocity().scl(delta);
+
+		// if bob collides, make his horizontal velocity 0
+		collidable = world.getDrawableBlocks(10, 7);
+		for (Block block : collidable) {
+			if (block == null)
+				continue;
+			if (block.getPosition().epsilonEquals(bullet.getPosition(), 0.12f)) {
+			//if (block.getBounds().overlaps(bullet.getBounds())){
+				//block.getBounds().overlaps(r);
+			
+				tmp = true;
+			}
+
+		}
+		return tmp;
+	}
+
+	// deleteBullet();
+	// private void deleteBullet(Block block){
+	// ListIterator<Bullet> iter = bullets.listIterator();
+	// while(iter.hasNext()){
+	// Bullet bullet = iter.next();
+	// if((block.getPosition().epsilonEquals(bullet.getPosition(), 0.12f) &
+	// (bullet.isBulletCreated==true))){
+	// iter.remove();
+	// }
+	// }
+	// }
+
+
+	/**
+	 * populate the collidable array with the blocks found in the enclosing
+	 * coordinates
+	 **/
+	private void populateCollidableBlocks(int startX, int startY, int endX,
+			int endY) {
+		collidable.clear();
+		for (int x = startX; x <= endX; x++) {
+			for (int y = startY; y <= endY; y++) {
+				if (x >= 0 && x < world.getLevel().getWidth() && y >= 0
+						&& y < world.getLevel().getHeight()) {
+					collidable.add(world.getLevel().get(x, y));
+				}
+			}
+		}
+	}
+}
